@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [ "main" ]
 
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: 'Browser to run tests (chrome/firefox)'
+        required: false
+        default: 'chrome'
+
 permissions:
   contents: write
   pages: write
