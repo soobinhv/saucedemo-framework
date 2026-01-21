@@ -19,6 +19,26 @@ def driver(request):
 
     if browser_name.lower() == "chrome":
         options = webdriver.ChromeOptions()
+
+        # --- BẮT ĐẦU CẤU HÌNH FIX LỖI POPUP ---
+
+        # 1. Tắt tính năng phát hiện rò rỉ mật khẩu
+        options.add_argument("--disable-features=PasswordLeakDetection")
+
+        # 2. Tắt popup "Save Password" và "Change Password"
+        prefs = {
+            "credentials_enable_service": False,
+            "profile.password_manager_enabled": False,
+            "profile.default_content_setting_values.notifications": 2  # Tắt thông báo
+        }
+        options.add_experimental_option("prefs", prefs)
+
+        # 3. Loại bỏ dòng "Chrome is being controlled by automated test software" (Optional - nhìn cho đẹp)
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
+
+        # --- KẾT THÚC CẤU HÌNH ---
+
         if headless_mode:
             options.add_argument("--headless")
             options.add_argument("--window-size=1920,1080")
@@ -29,7 +49,6 @@ def driver(request):
     driver.maximize_window()
     driver.implicitly_wait(5)
 
-    # Gán driver vào node test để hook có thể lấy được (cho việc chụp ảnh)
     request.node.driver = driver
 
     yield driver
