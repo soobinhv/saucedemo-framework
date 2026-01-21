@@ -20,21 +20,35 @@ def driver(request):
     if browser_name.lower() == "chrome":
         options = webdriver.ChromeOptions()
 
-        # --- BẮT ĐẦU CẤU HÌNH FIX LỖI POPUP ---
+        # --- BẮT ĐẦU CẤU HÌNH MẠNH TAY (THE NUCLEAR OPTION) ---
 
-        # 1. Tắt tính năng phát hiện rò rỉ mật khẩu
-        options.add_argument("--disable-features=PasswordLeakDetection")
-
-        # 2. Tắt popup "Save Password" và "Change Password"
+        # 1. PREFS: Can thiệp sâu vào User Profile
         prefs = {
+            # Tắt hoàn toàn việc quản lý mật khẩu
             "credentials_enable_service": False,
             "profile.password_manager_enabled": False,
-            "profile.default_content_setting_values.notifications": 2  # Tắt thông báo
+
+            # Tắt Safe Browsing (Nguyên nhân chính gây ra popup Leak Detection ở Chrome mới)
+            "safebrowsing.enabled": True,  # Lưu ý: Một số version cần set True để bypass check, một số cần False.
+            # Tuy nhiên, cách hiệu quả nhất là tắt các tính năng con bên dưới:
         }
         options.add_experimental_option("prefs", prefs)
 
-        # 3. Loại bỏ dòng "Chrome is being controlled by automated test software" (Optional - nhìn cho đẹp)
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        # 2. ARGUMENTS: Tắt các tính năng bảo mật từ dòng lệnh
+        # Tắt Password Leak Detection (giữ lại cái cũ)
+        options.add_argument("--disable-features=PasswordLeakDetection")
+
+        # Tắt Safe Browsing (Quan trọng)
+        options.add_argument("--safebrowsing-disable-download-protection")
+        options.add_argument("--sb-enable-main-frame-url-check")
+        options.add_argument("--disable-client-side-phishing-detection")
+
+        # Tắt popup "Save Password" bong bóng
+        options.add_argument("--disable-save-password-bubble")
+
+        # Ẩn việc đang chạy Automation (giúp tránh một số cơ chế anti-bot)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
         options.add_experimental_option('useAutomationExtension', False)
 
         # --- KẾT THÚC CẤU HÌNH ---
