@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
   id-token: write
 
 jobs:
@@ -59,10 +58,56 @@ jobs:
         allure_history: allure-history
         keep_reports: 20
 
-    - name: Deploy Report to GitHub Pages
+    # --- NEW: archive and upload generated report as an artifact (replaces GitHub Pages deploy) ---
+    - name: Prepare Allure report archive
       if: always()
-      uses: peaceiris/actions-gh-pages@v3
+      run: |
+        if [ -d allure-history ] && [ "$(ls -A allure-history)" ]; then
+          zip -r allure-report.zip allure-history
+        elif [ -d allure-report ] && [ "$(ls -A allure-report)" ]; then
+          zip -r allure-report.zip allure-report
+        else
+          mkdir -p allure-report
+          echo "<html><body><p>No results</p></body></html>" > allure-report/index.html
+          zip -r allure-report.zip allure-report
+        fi
+
+    - name: Upload Allure report artifact
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_branch: gh-pages
-        publish_dir: allure-history
+        name: allure-report
+        path: allure-report.zip
+
+    - name: Resolve artifact download URL (via API) and show URLs
+      if: always()
+      id: show_urls
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REPO: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+      run: |
+        set -e
+        api_url="https://api.github.com/repos/${REPO}/actions/runs/${RUN_ID}/artifacts"
+        echo "Querying: $api_url" >&2
+        resp=$(curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" "$api_url")
+        artifact_id=$(echo "$resp" | jq -r '.artifacts[] | select(.name=="allure-report") | .id')
+        if [ -z "$artifact_id" ] || [ "$artifact_id" = "null" ]; then
+          echo "Artifact 'allure-report' not found in run artifacts." >&2
+          echo "artifact_id=not_found" >> $GITHUB_OUTPUT
+          echo "download_url=" >> $GITHUB_OUTPUT
+        else
+          download_url="https://api.github.com/repos/${REPO}/actions/artifacts/${artifact_id}/zip"
+          echo "artifact_id=$artifact_id" >> $GITHUB_OUTPUT
+          echo "download_url=$download_url" >> $GITHUB_OUTPUT
+        fi
+        echo ""
+        echo "Allure artifact page for this run (open in browser):"
+        echo "https://github.com/${REPO}/suites/${RUN_ID}/artifacts"
+        echo ""
+        echo "Direct artifact download (requires Authorization header with a token):"
+        echo "${download_url:-<not_found>}"
+        echo ""
+        echo "Example curl to download (use a token with repo access):"
+        echo "curl -H \"Authorization: Bearer <token>\" -L \"${download_url:-<not_found>}\" -o allure-report.zip"
+        echo ""
